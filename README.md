@@ -1,16 +1,21 @@
 # Interview Tracker
 
 A single-page dashboard for tracking interview pass rates across an active job
-search. Pass rate per round sits at the top; every company is one row below,
-where each round cell cycles **Not yet → Passed → Rejected** with a click.
+search. Pass rate per round sits at the top as a radial gauge; every company is
+one row below, where each round has a status dropdown and a date.
+
+Round statuses: **—** (not reached yet), **Scheduled**, **Waiting Feedback**,
+**Passed**, **Failed**.
 
 Built with Next.js 16, Tailwind v4, Drizzle ORM, and Neon Postgres. The whole
 site sits behind one password.
 
 ## How the rates are calculated
 
-- **Round pass rates** count _decided_ cells only: `passed / (passed + rejected)`.
-  A round you haven't sat yet doesn't drag the percentage down.
+- **Round pass rates** count _decided_ statuses only:
+  `passed / (passed + failed)`. **Scheduled** and **Waiting Feedback** are still
+  in flight, so they don't drag the percentage down — and neither does a round
+  you haven't reached.
 - **Offer rate** uses a different denominator on purpose — `offers / total companies`
   — because a company that never made an offer still counts against the search.
 - A stage with nothing decided shows `—`, not `0%`.
@@ -75,8 +80,15 @@ both, which is the simplest setup for a personal tracker.
 - **Auth** is a single shared password. The session cookie stores an HMAC of a
   fixed payload signed with `AUTH_SECRET`, so it can't be forged and doesn't
   contain the password. Rotating `AUTH_SECRET` logs you out everywhere.
-- **Edits save automatically** — cell clicks immediately, text fields ~0.7s
-  after you stop typing (and on blur). The header shows the last save time.
+- **Edits save automatically** — dropdowns and dates immediately, text fields
+  ~0.7s after you stop typing (and on blur). The header shows the last save time.
+- **`cell_state` is a Postgres enum, so status changes need a migration.** It was
+  migrated in place with `ALTER TYPE ... RENAME VALUE 'rejected' TO 'failed'` plus
+  `ADD VALUE` for the new states — deliberately not a drop-and-recreate, so live
+  data survives. Declare enum values in [src/db/schema.ts](src/db/schema.ts) in
+  the same order Postgres stores them, or `db:push` sees phantom drift.
+  **A deployed build must be redeployed after such a migration**: older code
+  sending a removed value (`rejected`) gets a Postgres error.
 - **Deleting a row** asks for confirmation only when the row has real data in
   it; blank rows are removed without a prompt.
 - **Icon** — source art is [assets/discount_8797971.gif](assets/discount_8797971.gif),
