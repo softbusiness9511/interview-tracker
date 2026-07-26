@@ -46,6 +46,10 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-sched-bg: var(--sched-bg);
+  --color-sched-fg: var(--sched-fg);
+  --color-wait-bg: var(--wait-bg);
+  --color-wait-fg: var(--wait-fg);
   --color-pass-bg: var(--pass-bg);
   --color-pass-fg: var(--pass-fg);
   --color-reject-bg: var(--reject-bg);
@@ -57,6 +61,10 @@
 }
 
 :root {
+  /* Makes the browser's native date picker render in the matching theme —
+     without this the calendar popup stays white on the dark theme. */
+  color-scheme: light;
+
   --background: #f1f2f6;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -91,6 +99,10 @@
   --sidebar-ring: oklch(0.708 0 0);
 
   /* Cell states and meter, verified for WCAG text contrast on their own pills. */
+  --sched-bg: #dce8fb;
+  --sched-fg: #1d4f91;
+  --wait-bg: #fdeecd;
+  --wait-fg: #8a5a08;
   --pass-bg: #d8ece3;
   --pass-fg: #166b52;
   --reject-bg: #fbdedb;
@@ -108,6 +120,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   --background: #121316;
   --foreground: oklch(0.985 0 0);
   --card: #1a1b1e;
@@ -141,6 +155,10 @@
   --sidebar-ring: oklch(0.556 0 0);
 
   /* Re-stepped for the dark surface, not an automatic flip of the light values. */
+  --sched-bg: #16263c;
+  --sched-fg: #9cc4f7;
+  --wait-bg: #3a2c10;
+  --wait-fg: #f0c266;
   --pass-bg: #14342a;
   --pass-fg: #6edcae;
   --reject-bg: #3a1f1d;

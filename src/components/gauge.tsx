@@ -5,17 +5,27 @@ const R_OUTER = 47;
 const R_INNER = 38.5;
 const TICK_WIDTH = 1.9;
 
-/** Precomputed tick endpoints — the geometry never changes, only which are lit. */
+/**
+ * Precomputed tick endpoints — the geometry never changes, only which are lit.
+ *
+ * Coordinates are rounded because Math.cos/Math.sin are not required to agree
+ * to the last bit across implementations: Node and Chrome disagreed by 1 ULP,
+ * so SSR emitted "88.5" where the client computed "88.50000000000001" and React
+ * rejected the whole subtree with a hydration mismatch. Three decimals is far
+ * more precision than a 100-unit viewBox can show.
+ */
+const round = (n: number) => Number(n.toFixed(3));
+
 const TICK_GEOMETRY = Array.from({ length: TICKS }, (_, i) => {
   // Start at 12 o'clock and run clockwise, like the reference gauge.
   const radians = ((-90 + i * (360 / TICKS)) * Math.PI) / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
   return {
-    x1: 50 + R_INNER * cos,
-    y1: 50 + R_INNER * sin,
-    x2: 50 + R_OUTER * cos,
-    y2: 50 + R_OUTER * sin,
+    x1: round(50 + R_INNER * cos),
+    y1: round(50 + R_INNER * sin),
+    x2: round(50 + R_OUTER * cos),
+    y2: round(50 + R_OUTER * sin),
   };
 });
 

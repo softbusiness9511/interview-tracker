@@ -9,8 +9,10 @@ import { interviews, type Interview } from "@/db/schema";
 import {
   CELL_KEYS,
   CELL_STATES,
+  DATE_KEYS,
   type CellKey,
   type CellState,
+  type DateKey,
 } from "@/lib/pipeline";
 import {
   SESSION_COOKIE,
@@ -47,6 +49,23 @@ export async function setCell(id: number, key: CellKey, state: CellState) {
   await getDb()
     .update(interviews)
     .set({ [key]: state } as Partial<Interview>)
+    .where(eq(interviews.id, id));
+
+  revalidatePath("/");
+}
+
+export async function setDate(id: number, key: DateKey, value: string | null) {
+  if (!DATE_KEYS.includes(key)) throw new Error(`Unknown date column: ${key}`);
+
+  // An empty picker clears the date rather than storing "".
+  const stored = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  if (value && stored === null) {
+    throw new Error(`Expected an ISO date (YYYY-MM-DD), got: ${value}`);
+  }
+
+  await getDb()
+    .update(interviews)
+    .set({ [key]: stored } as Partial<Interview>)
     .where(eq(interviews.id, id));
 
   revalidatePath("/");

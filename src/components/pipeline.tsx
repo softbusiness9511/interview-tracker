@@ -14,16 +14,19 @@ import {
   CELL_HEADING,
   CELL_KEYS,
   CELL_LABEL,
-  nextState,
+  CELL_STATES,
+  DATE_KEY,
   stageStats,
   type CellKey,
   type CellState,
+  type DateKey,
 } from "@/lib/pipeline";
 import {
   addInterview,
   deleteInterview,
   logout,
   setCell,
+  setDate,
   setText,
 } from "@/app/actions";
 import { StageSummary } from "@/components/stage-summary";
@@ -32,33 +35,69 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const CELL_TONE: Record<CellState, string> = {
-  passed: "bg-pass-bg text-pass-fg",
-  rejected: "bg-reject-bg text-reject-fg",
   not_yet: "bg-idle-bg text-idle-fg",
+  scheduled: "bg-sched-bg text-sched-fg",
+  waiting_feedback: "bg-wait-bg text-wait-fg",
+  passed: "bg-pass-bg text-pass-fg",
+  failed: "bg-reject-bg text-reject-fg",
 };
 
-function CellButton({
+/**
+ * A native <select> rather than a custom popover: it keeps the coloured-pill
+ * look, but gets keyboard support, type-ahead and the platform picker on mobile
+ * for free — worth more than bespoke styling on a table with 5 of these per row.
+ */
+function StatusSelect({
   state,
   label,
-  onCycle,
+  onChange,
 }: {
   state: CellState;
   label: string;
-  onCycle: () => void;
+  onChange: (next: CellState) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onCycle}
-      // The written state is the label itself, so the pill never relies on color.
-      aria-label={`${label}: ${CELL_LABEL[state]}. Click to change.`}
+    <select
+      value={state}
+      aria-label={`${label} status`}
+      onChange={(event) => onChange(event.target.value as CellState)}
       className={cn(
-        "focus-visible:ring-ring w-full max-w-[104px] cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:outline-none",
+        "focus-visible:ring-ring w-full cursor-pointer appearance-none rounded-md py-1.5 pr-5 pl-2.5 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none",
+        // Chevron drawn in the text colour so it recolours with each state.
+        "bg-[image:var(--chevron)] bg-[length:12px] bg-[position:right_6px_center] bg-no-repeat",
         CELL_TONE[state],
       )}
+      style={{
+        ["--chevron" as string]:
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 8l3-3.5' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
+      }}
     >
-      {CELL_LABEL[state]}
-    </button>
+      {CELL_STATES.map((value) => (
+        <option key={value} value={value}>
+          {CELL_LABEL[value]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function DateCell({
+  value,
+  label,
+  onCommit,
+}: {
+  value: string | null;
+  label: string;
+  onCommit: (next: string | null) => void;
+}) {
+  return (
+    <input
+      type="date"
+      value={value ?? ""}
+      aria-label={`${label} date`}
+      onChange={(event) => onCommit(event.target.value || null)}
+      className="focus-visible:ring-ring text-muted-foreground hover:text-foreground w-full cursor-pointer rounded-md bg-transparent px-1.5 py-1 font-mono text-[11px] tabular-nums focus-visible:ring-2 focus-visible:outline-none"
+    />
   );
 }
 
@@ -107,6 +146,7 @@ function TextCell({
 
 type Patch =
   | { type: "cell"; id: number; key: CellKey; state: CellState }
+  | { type: "date"; id: number; key: DateKey; value: string | null }
   | { type: "text"; id: number; field: "company" | "position"; value: string }
   | { type: "remove"; id: number };
 
@@ -115,6 +155,10 @@ function applyPatch(rows: Interview[], patch: Patch): Interview[] {
     case "cell":
       return rows.map((row) =>
         row.id === patch.id ? { ...row, [patch.key]: patch.state } : row,
+      );
+    case "date":
+      return rows.map((row) =>
+        row.id === patch.id ? { ...row, [patch.key]: patch.value } : row,
       );
     case "text":
       return rows.map((row) =>
@@ -133,11 +177,18 @@ export function Pipeline({ initialRows }: { initialRows: Interview[] }) {
   // action settles and the revalidated server rows arrive.
   const [rows, patch] = useOptimistic(initialRows, applyPatch);
 
-  function cycle(row: Interview, key: CellKey) {
-    const next = nextState(row[key] as CellState);
+  function changeStatus(row: Interview, key: CellKey, next: CellState) {
     startTransition(async () => {
       patch({ type: "cell", id: row.id, key, state: next });
       await setCell(row.id, key, next);
+      setSavedAt(new Date());
+    });
+  }
+
+  function changeDate(row: Interview, key: DateKey, value: string | null) {
+    startTransition(async () => {
+      patch({ type: "date", id: row.id, key, value });
+      await setDate(row.id, key, value);
       setSavedAt(new Date());
     });
   }
@@ -188,7 +239,7 @@ export function Pipeline({ initialRows }: { initialRows: Interview[] }) {
   const stats = stageStats(rows);
 
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-8">
+    <main className="mx-auto flex w-full max-w-[1560px] flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-start gap-3">
         {/* `unoptimized` is required, not cosmetic: Next's optimizer transcodes
             to WebP for Chrome and drops the alpha channel, which paints a white
@@ -253,24 +304,27 @@ export function Pipeline({ initialRows }: { initialRows: Interview[] }) {
           </Button>
         </div>
 
+        {/* Each round now carries a status and a date, so the table is wider
+            than the viewport on smaller screens and scrolls horizontally. */}
         <div className="bg-card overflow-x-auto rounded-xl border shadow-sm">
-          <table className="w-full min-w-[880px] border-collapse text-left">
+          <table className="w-full min-w-[1276px] border-collapse text-left">
             <thead>
               <tr className="bg-muted/50 text-muted-foreground text-[11px] tracking-[0.08em] uppercase">
-                <th scope="col" className="w-20 px-4 py-3 font-medium">
+                <th scope="col" className="w-[72px] px-4 py-3 font-medium">
                   ID
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="w-[170px] px-4 py-3 font-medium">
                   Company
                 </th>
-                <th scope="col" className="px-4 py-3 font-medium">
+                <th scope="col" className="w-[200px] px-4 py-3 font-medium">
                   Position
                 </th>
                 {CELL_KEYS.map((key) => (
                   <th
                     key={key}
                     scope="col"
-                    className="w-[108px] px-3 py-3 font-medium"
+                    // 158px is set by the longest option, "Waiting Feedback".
+                    className="w-[158px] px-3 py-3 font-medium"
                   >
                     {CELL_HEADING[key]}
                   </th>
@@ -313,15 +367,28 @@ export function Pipeline({ initialRows }: { initialRows: Interview[] }) {
                     />
                   </td>
 
-                  {CELL_KEYS.map((key) => (
-                    <td key={key} className="px-3 py-2.5">
-                      <CellButton
-                        state={row[key] as CellState}
-                        label={`${row.ticket} ${CELL_HEADING[key]}`}
-                        onCycle={() => cycle(row, key)}
-                      />
-                    </td>
-                  ))}
+                  {CELL_KEYS.map((key) => {
+                    const dateKey = DATE_KEY[key];
+                    const label = `${row.ticket} ${CELL_HEADING[key]}`;
+                    return (
+                      <td key={key} className="px-3 py-2">
+                        <div className="flex flex-col gap-1">
+                          <StatusSelect
+                            state={row[key] as CellState}
+                            label={label}
+                            onChange={(next) => changeStatus(row, key, next)}
+                          />
+                          <DateCell
+                            value={row[dateKey] as string | null}
+                            label={label}
+                            onCommit={(value) =>
+                              changeDate(row, dateKey, value)
+                            }
+                          />
+                        </div>
+                      </td>
+                    );
+                  })}
 
                   <td className="px-2 py-2.5">
                     <button
