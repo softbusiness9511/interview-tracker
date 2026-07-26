@@ -28,6 +28,6 @@ export const config = {
   // load — the logos and generated favicons are decorative, not private. Pages
   // and server actions still go through the gate.
   matcher: [
-    "/((?!_next/|favicon\\.ico$|.*\\.(?:png|gif|jpg|jpeg|svg|webp|avif|ico|webmanifest)$).*)",
+    "/((?!_next/|favicon\\.ico$|.*\\.(?:png|gif|jpg|jpeg|svg|webp|avif|ico|webmanifest|woff2?|ttf|otf|eot)$).*)",
   ],
 };
