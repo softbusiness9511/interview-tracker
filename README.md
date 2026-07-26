@@ -106,6 +106,17 @@ both, which is the simplest setup for a personal tracker.
   are served by the metadata route, not the optimizer. If you swap the art,
   re-check dark mode in a real browser: `curl` sends no `Accept: image/webp`
   header, so it will fetch the intact PNG and hide the bug.
+- **Fonts are system stacks, not webfonts** (`--app-sans` / `--app-mono` in
+  [globals.css](src/app/globals.css)). Segoe UI ships with Windows and its
+  licence does not permit webfont embedding, so it cannot be self-hosted — the
+  stack falls through to **Selawik**, Microsoft's metric-compatible open
+  substitute (SIL OFL 1.1), self-hosted from [public/fonts/](public/fonts/) at
+  60KB for three weights — that is legal to embed where Segoe UI is not. So
+  Windows renders real Segoe UI and everything else renders Selawik, which is
+  metrically identical. `next/font` is gone, so no Google Fonts fetch at build.
+  Keep the licence file next to the fonts; OFL requires it.
+  Font files must also stay exempt from the gate matcher in
+  [src/proxy.ts](src/proxy.ts), or they 307 to `/login` like the images did.
 - **Static assets are exempt from the password gate** in
   [src/proxy.ts](src/proxy.ts) — without that, image requests get 307'd to
   `/login` and silently never load.

@@ -29,6 +29,7 @@ import {
   setDate,
   setText,
 } from "@/app/actions";
+import { QuoteNote } from "@/components/quote-note";
 import { StageSummary } from "@/components/stage-summary";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -406,6 +407,8 @@ export function Pipeline({ initialRows }: { initialRows: Interview[] }) {
           </table>
         </div>
       </section>
+
+      <QuoteNote />
     </main>
   );
 }
