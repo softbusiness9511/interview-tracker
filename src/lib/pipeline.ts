@@ -18,9 +18,13 @@ export const CELL_LABEL: Record<CellState, string> = {
   failed: "Failed",
 };
 
-/** Only these two settle a round; the rest are still in flight. */
-const DECIDED: CellState[] = ["passed", "failed"];
-export const isDecided = (state: CellState) => DECIDED.includes(state);
+/**
+ * Statuses that mean the interview actually happened. Waiting Feedback counts:
+ * the round was sat, the answer just hasn't arrived. Scheduled and "—" don't,
+ * because nothing has been sat yet.
+ */
+const SAT: CellState[] = ["passed", "failed", "waiting_feedback"];
+export const wasSat = (state: CellState) => SAT.includes(state);
 
 export const ROUND_KEYS = [
   "round1",
@@ -72,17 +76,19 @@ export type StageStat = {
 };
 
 /**
- * Rounds are scored on decided cells only — a round that is merely Scheduled or
- * Waiting Feedback shouldn't drag a pass rate down, and neither should one you
- * haven't reached. The offer rate is deliberately different: its denominator is
+ * Rounds are scored on interviews actually sat: `passed / (passed + failed +
+ * waiting_feedback)`. An interview you've sat but not heard back on counts
+ * against the rate until the answer lands — so the number reads as "of the
+ * rounds I've sat, how many have I passed so far" and will tick up when a
+ * pending one resolves to Passed. Scheduled and "—" are excluded; nothing has
+ * happened yet. The offer rate is deliberately different: its denominator is
  * every company tracked, since a company that never made an offer still counts
  * against the search.
  */
 export function stageStats(rows: Interview[]): StageStat[] {
   const roundStats = ROUND_KEYS.map((key) => {
     const passed = rows.filter((row) => row[key] === "passed").length;
-    const failed = rows.filter((row) => row[key] === "failed").length;
-    const total = passed + failed;
+    const total = rows.filter((row) => wasSat(row[key] as CellState)).length;
     return {
       key,
       label: STAT_LABEL[key],

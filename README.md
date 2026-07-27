@@ -12,10 +12,12 @@ site sits behind one password.
 
 ## How the rates are calculated
 
-- **Round pass rates** count _decided_ statuses only:
-  `passed / (passed + failed)`. **Scheduled** and **Waiting Feedback** are still
-  in flight, so they don't drag the percentage down — and neither does a round
-  you haven't reached.
+- **Round pass rates** count every interview actually sat:
+  `passed / (passed + failed + waiting_feedback)`. **Waiting Feedback** counts
+  because the interview happened — the answer just hasn't arrived — so the
+  figure reads "of the rounds I've sat, how many have I passed so far", and it
+  rises when a pending one resolves to Passed. **Scheduled** and **—** are
+  excluded: nothing has been sat yet.
 - **Offer rate** uses a different denominator on purpose — `offers / total companies`
   — because a company that never made an offer still counts against the search.
 - A stage with nothing decided shows `—`, not `0%`.
